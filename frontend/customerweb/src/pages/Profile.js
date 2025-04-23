@@ -156,7 +156,8 @@ const Profile = () => {
     try {
       const token = localStorage.getItem("token");
       const subdomain = generateRandomSubdomain();
-      const url = `https://${subdomain}.n-cep.com`;
+      // Sử dụng domain của server
+      const url = `https://spamlink.onrender.com/r/${subdomain}`;
 
       const response = await axios.post(
         "https://spamlink.onrender.com/api/linkInfo",
@@ -304,9 +305,9 @@ const Profile = () => {
   };
 
   const generateRandomUrl = (originalUrl) => {
-    const urlParts = originalUrl.split(".");
+    // Tạo URL mới với domain của server
     const newSubdomain = generateRandomSubdomain();
-    return `https://${newSubdomain}.n-cep.com`;
+    return `https://spamlink.onrender.com/r/${newSubdomain}`;
   };
 
   return (
