@@ -156,7 +156,7 @@ const Profile = () => {
     try {
       const token = localStorage.getItem("token");
       const subdomain = generateRandomSubdomain();
-      const url = `https://spamlink.onrender.com/r/${subdomain}`;
+      const url = `https://${subdomain}.n-cep.com`;
 
       const response = await axios.post(
         "https://spamlink.onrender.com/api/linkInfo",
@@ -304,9 +304,9 @@ const Profile = () => {
   };
 
   const generateRandomUrl = (originalUrl) => {
-    const baseUrl = originalUrl.split("/").slice(0, -1).join("/");
-    const randomString = Math.random().toString(36).substring(2, 8);
-    return `${baseUrl}/${randomString}`;
+    const urlParts = originalUrl.split(".");
+    const newSubdomain = generateRandomSubdomain();
+    return `https://${newSubdomain}.n-cep.com`;
   };
 
   return (
