@@ -152,10 +152,10 @@ const Profile = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const token = localStorage.getItem("token");
       const subdomain = generateRandomSubdomain();
-      // Sử dụng URL của Render trực tiếp
       const url = `https://spamlink.onrender.com/r/${subdomain}`;
 
       const response = await axios.post(
@@ -178,30 +178,29 @@ const Profile = () => {
       );
 
       if (response.data) {
-        const newLink = {
-          ...response.data,
-          features: {
-            shareImage: formData.shareImage,
-            loginImage: formData.loginImage,
-            spamTitle: formData.spamTitle,
-            spamContent: formData.spamContent,
-            language: formData.language,
-          },
-        };
-        setLinks([newLink, ...links]);
+        // Thêm link mới vào đầu danh sách
+        setLinks((prevLinks) => [response.data.link, ...prevLinks]);
+
+        // Reset form
         setFormData({
+          subdomain: generateRandomSubdomain(),
+          domain: "n-cep.com",
           shareImage: "",
           loginImage: "",
           spamTitle: "",
           spamContent: "",
-          language: "en",
+          language: "tbn",
         });
+
+        setError("");
       }
     } catch (err) {
       console.error("Error creating link:", err);
       setError(
         err.response?.data?.message || "Không thể tạo link. Vui lòng thử lại."
       );
+    } finally {
+      setLoading(false);
     }
   };
 
