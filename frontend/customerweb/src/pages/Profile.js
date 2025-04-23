@@ -454,6 +454,7 @@ const Profile = () => {
                       type="text"
                       value={generateRandomUrl(link.url)}
                       readOnly
+                      onClick={() => window.open(link.originalUrl, "_blank")}
                       style={{ cursor: "pointer" }}
                     />
                   </td>
