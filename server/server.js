@@ -32,35 +32,16 @@ app.use(express.json());
 // Handle preflight requests
 app.options("*", cors(corsOptions));
 
-// MongoDB connection
-const MONGODB_URI =
-  process.env.MONGODB_URI ||
-  process.env.MONGODBI ||
-  "mongodb://localhost:27017/spamlink";
-
-console.log(
-  "Attempting to connect to MongoDB with URI:",
-  MONGODB_URI.replace(
-    /mongodb\+srv:\/\/([^:]+):([^@]+)@/,
-    "mongodb+srv://[username]:[password]@"
-  )
-);
-
+// Connect to MongoDB
 mongoose
-  .connect(MONGODB_URI, {
+  .connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    retryWrites: true,
-    w: "majority",
   })
   .then(() => console.log("MongoDB connected successfully"))
   .catch((err) => {
-    console.error("MongoDB connection error details:", {
-      message: err.message,
-      code: err.code,
-      name: err.name,
-      stack: err.stack,
-    });
+    console.error("MongoDB connection error:", err);
+    process.exit(1);
   });
 
 // Add security headers middleware
