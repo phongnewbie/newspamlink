@@ -1,0 +1,14 @@
+{
+  "name": "spamlink",
+  "version": "1.0.0",
+  "description": "Spam Link Management System",
+  "scripts": {
+    "install-server": "cd server && npm install",
+    "install-frontend": "cd frontend/customerweb && npm install",
+    "build-frontend": "cd frontend/customerweb && npm run build",
+    "start": "cd server && npm start"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
