@@ -155,9 +155,9 @@ const Profile = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const subdomain = generateRandomSubdomain();
-      // Sử dụng domain của server
-      const url = `https://spamlink.onrender.com/r/${subdomain}`;
+      // Sử dụng subdomain từ form thay vì generate ngẫu nhiên
+      const subdomain = formData.subdomain;
+      const url = `https://${subdomain}.${formData.domain}`;
 
       const response = await axios.post(
         "https://spamlink.onrender.com/api/linkInfo",
@@ -182,15 +182,15 @@ const Profile = () => {
         // Thêm link mới vào đầu danh sách
         setLinks((prevLinks) => [response.data.link, ...prevLinks]);
 
-        // Reset form
+        // Reset form nhưng giữ nguyên domain đã chọn
         setFormData({
-          subdomain: generateRandomSubdomain(),
-          domain: "n-cep.com",
+          subdomain: generateRandomSubdomain(), // Tạo subdomain mới cho lần sau
+          domain: formData.domain, // Giữ nguyên domain đã chọn
           shareImage: "",
           loginImage: "",
           spamTitle: "",
           spamContent: "",
-          language: "tbn",
+          language: formData.language, // Giữ nguyên ngôn ngữ đã chọn
         });
 
         setError("");
